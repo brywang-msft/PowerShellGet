@@ -69,7 +69,7 @@ function Install-Dependencies {
             }
             
             # Download the NuGet.exe from https://nuget.org/NuGet.exe
-            Microsoft.PowerShell.Utility\Invoke-WebRequest -Uri https://nuget.org/NuGet.exe -OutFile $NugetExeFilePath
+            Microsoft.PowerShell.Utility\Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -OutFile $NugetExeFilePath
         }
 
         Get-ChildItem $NugetExeFilePath -File
