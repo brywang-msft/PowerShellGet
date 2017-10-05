@@ -829,6 +829,20 @@ function Publish-PSGetExtModule
             return
         }
 
+        if (-not (Test-Path -Path $NupkgPath))
+        {
+            # Otherwise, test all version parts
+            foreach ($versionPartsNum in @(2, 3, 4))
+            {
+                $NupkgPath = "$NugetPackageRoot\$($PSModuleInfo.Name).$(Get-VersionString -Version $Version -VersionParts $versionPartsNum).nupkg"
+                if (Test-Path -Path $NupkgPath)
+                {
+                    # TODO: Warning - auto-normalize happened, will be listed as 1.0.0 in non-PSGallery
+                    break
+                }
+            }
+        }
+
         # Publish the .nupkg to gallery
         $output = & $script:NuGetClient push $NupkgPath  -source $Destination -NonInteractive -ApiKey $NugetApiKey 
         if($LASTEXITCODE)
@@ -847,6 +861,60 @@ function Publish-PSGetExtModule
         Remove-Item $NupkgPath  -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Confirm:$false -WhatIf:$false
         Remove-Item $NuspecPath -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Confirm:$false -WhatIf:$false
     }
+}
+
+function Get-VersionString
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true)]
+        [Version]
+        $Version,
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet(2, 3, 4)]
+        [int]
+        $VersionParts = -1
+    )
+
+    $versionString = ''
+    if ($VersionParts -eq -1) 
+    {
+        $versionString = $Version.ToString()
+    } else
+    {
+        $major = $Version.Major
+        $minor = $Version.Minor
+        $build = $Version.Build
+        $revision = $Version.Revision
+        if ($major -eq -1)
+        {
+            $major = 0
+        }
+        if ($minor -eq -1)
+        {
+            $minor = 0
+        }
+        if ($build -eq -1)
+        {
+            $build = 0
+        }
+        if ($revision -eq -1)
+        {
+            $revision = 0
+        }
+
+        switch ($VersionParts)
+        {
+            2 { $versionString = [Version]::new($major, $minor).ToString() }
+            3 { $versionString = [Version]::new($major, $minor, $build).ToString() }
+            4 { $versionString = [Version]::new($major, $minor, $build, $revision).ToString() }
+            default { $versionString = $Version.ToString() }
+        }
+    }
+
+    return $versionString
 }
 
 function Get-EscapedString

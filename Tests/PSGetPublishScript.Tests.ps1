@@ -62,6 +62,7 @@ function SuiteSetup {
 
     $script:PublishScriptName = 'Fabrikam-TestScript'
     $script:PublishScriptVersion = '1.0'
+    $script:PublishScriptSemVerVersion = '1.0.0'
     $script:PublishScriptFilePath = Join-Path -Path $script:TempScriptsPath -ChildPath "$script:PublishScriptName.ps1"
 }
 
@@ -140,6 +141,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
                              )
 
         $Versions = @('1.0', '1.4', '2.0', '2.5')
+        $SemVerVersions = @('1.0.0', '1.4.0', '2.0.0', '2.5.0')
         foreach($requiredScriptName in $RequiredScriptNames)
         {
             foreach($dependencyVersion in $Versions) {
@@ -169,21 +171,21 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
         AssertEqualsCaseInsensitive $res1.Name "$ScriptName" "Find-Script didn't find the exact script which has dependencies, $($res1 | Out-String)"
         AssertEquals $res1.Dependencies.Count 1 "Find-Script with -IncludeDependencies returned wrong results, $($res1 | Out-String)"
         AssertEqualsCaseInsensitive $res1.Dependencies.Name $RequiredScriptNames[0] "Find-Script didn't find the exact script which has dependencies, $($res1.Dependencies | Out-String)"
-        AssertEquals $res1.Dependencies.RequiredVersion $Versions[0] "Find-Script returned incorrect required version, $($res1.Dependencies | Out-String)"
+        Assert (($res1.Dependencies.RequiredVersion -eq $Versions[0]) -or ($res1.Dependencies.RequiredVersion -eq $SemVerVersions[0])) "Find-Script returned incorrect required version, $($res1.Dependencies | Out-String)"
 
         $res2 = Find-Script -Name $ScriptName -RequiredVersion $Versions[1]
         AssertEqualsCaseInsensitive $res2.Name $ScriptName "Find-Script didn't find the exact script which has dependencies, $($res2 | Out-String)"
         AssertEquals $res2.Dependencies.Count 1 "Find-Script with -IncludeDependencies returned wrong results, $($res2 | Out-String)"
         AssertEqualsCaseInsensitive $res2.Dependencies.Name $RequiredScriptNames[1] "Find-Script didn't find the exact script which has dependencies, $($res2.Dependencies | Out-String)"
-        AssertEquals $res2.Dependencies.MinimumVersion $Versions[0] "Find-Script returned incorrect minimum version, $($res2.Dependencies | Out-String)"
-        AssertEquals $res2.Dependencies.MaximumVersion $Versions[2] "Find-Script returned incorrect maximum version, $($res2.Dependencies | Out-String)"
+        Assert (($res2.Dependencies.MinimumVersion -eq $Versions[0]) -or ($res2.Dependencies.MinimumVersion -eq $SemVerVersions[0])) "Find-Script returned incorrect minimum version, $($res2.Dependencies | Out-String)"
+        Assert (($res2.Dependencies.MaximumVersion -eq $Versions[2]) -or ($res2.Dependencies.MaximumVersion -eq $SemVerVersions[2])) "Find-Script returned incorrect maximum version, $($res2.Dependencies | Out-String)"
         AssertNullOrEmpty $res2.Dependencies.RequiredVersion "Required version should not exist, $($res2.Dependencies | Out-String)"
 
         $res3 = Find-Script -Name $ScriptName -RequiredVersion $Versions[2]
         AssertEqualsCaseInsensitive $res3.Name $ScriptName "Find-Script didn't find the exact script which has dependencies, $($res3 | Out-String)"
         AssertEquals $res3.Dependencies.Count 1 "Find-Script with -IncludeDependencies returned wrong results, $($res3 | Out-String)"
         AssertEqualsCaseInsensitive $res3.Dependencies.Name $RequiredScriptNames[2] "Find-Script didn't find the exact script which has dependencies, $($res3.Dependencies | Out-String)"
-        AssertEquals $res3.Dependencies.MaximumVersion $Versions[1] "Find-Script returned incorrect maximum version, $($res3.Dependencies | Out-String)"
+        Assert (($res3.Dependencies.MaximumVersion -eq $Versions[1]) -or ($res3.Dependencies.MaximumVersion -eq $SemVerVersions[1])) "Find-Script returned incorrect maximum version, $($res3.Dependencies | Out-String)"
         AssertNullOrEmpty $res3.Dependencies.MinimumVersion "Minimum version should not exist, $($res3.Dependencies | Out-String)"
         AssertNullOrEmpty $res3.Dependencies.RequiredVersion "Required version should not exist, $($res3.Dependencies | Out-String)"
 
@@ -191,7 +193,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
         AssertEqualsCaseInsensitive $res4.Name $ScriptName "Find-Script didn't find the exact script which has dependencies, $($res4 | Out-String)"
         AssertEquals $res4.Dependencies.Count 1 "Find-Script with -IncludeDependencies returned wrong results, $($res4 | Out-String)"
         AssertEqualsCaseInsensitive $res4.Dependencies.Name $RequiredScriptNames[3] "Find-Script didn't find the exact script which has dependencies, $($res4.Dependencies | Out-String)"
-        AssertEquals $res4.Dependencies.MinimumVersion $Versions[3] "Find-Script returned incorrect minimum version, $($res4.Dependencies | Out-String)"
+        Assert (($res4.Dependencies.MinimumVersion -eq $Versions[3]) -or ($res4.Dependencies.MinimumVersion -eq $SemVerVersions[3])) "Find-Script returned incorrect minimum version, $($res4.Dependencies | Out-String)"
         AssertNullOrEmpty $res4.Dependencies.MaximumVersion "Maximum version should not exist, $($res4.Dependencies | Out-String)"
         AssertNullOrEmpty $res4.Dependencies.RequiredVersion "Required version should not exist, $($res4.Dependencies | Out-String)"
     }
@@ -324,7 +326,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
 
         $psgetItemInfo = Find-Script $script:PublishScriptName -RequiredVersion $script:PublishScriptVersion
         AssertEquals $psgetItemInfo.Name $script:PublishScriptName "Publish-Script should publish a valid script after confirming YES, $($psgetItemInfo.Name)"
-        AssertEquals $psgetItemInfo.Version $script:PublishScriptVersion "Publish-Script should publish a valid script after confirming YES, $($psgetItemInfo.Version)"
+        Assert (($psgetItemInfo.Version -eq $script:PublishScriptVersion) -or ($psgetItemInfo.Version -eq $script:PublishScriptSemVerVersion)) "Publish-Script should publish a valid script after confirming YES, $($psgetItemInfo.Version)"
     } `
     -Skip:$(($PSEdition -eq 'Core') -or ($PSCulture -ne 'en-US') -or ([System.Environment]::OSVersion.Version -lt '6.2.9200.0'))
 
@@ -374,6 +376,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
     #
     It PublishScriptWithXMLSpecialCharacters {
         $version = '1.9'
+        $semVerVersion = '1.9.0'
         $ScriptName = "Script-WithSpecialChars"
         $ScriptFilePath = Join-Path -Path $script:TempScriptsLiteralPath -ChildPath "$ScriptName.ps1"
 
@@ -404,7 +407,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
         $scriptInfo = Test-ScriptFileInfo -LiteralPath $ScriptFilePath 
         AssertEqualsCaseInsensitive $scriptInfo.Name $ScriptName "ScriptName should be same as the published one"
         AssertEqualsCaseInsensitive $scriptInfo.Guid $Guid "Guid should be same as the published one"
-        AssertEqualsCaseInsensitive $scriptInfo.version $version "version should be same as the published one"
+        Assert (($scriptInfo.version -eq $version) -or ($scriptInfo.version -eq $semVerVersion)) "version should be same as the published one"
         AssertEqualsCaseInsensitive $scriptInfo.Description $Description "Description should be same as the published one"
         AssertEqualsCaseInsensitive "$($scriptInfo.ReleaseNotes)" "$ReleaseNotes" "ReleaseNotes should be same as the published one"
         AssertEqualsCaseInsensitive $scriptInfo.ProjectUri $ProjectUri "ProjectUri should be same as the published one"
@@ -421,7 +424,7 @@ Describe PowerShell.PSGet.PublishScriptTests -Tags 'BVT','InnerLoop' {
         $psgetItemInfo = Find-Script $ScriptName -RequiredVersion $version
 
         AssertEqualsCaseInsensitive $psgetItemInfo.Name $ScriptName "ScriptName should be same as the published one"
-        AssertEqualsCaseInsensitive $psgetItemInfo.version $version "version should be same as the published one"
+        Assert (($psgetItemInfo.version -eq $version) -or ($psgetItemInfo.version -eq $semVerVersion)) "version should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.Description $Description "Description should be same as the published one"
         AssertEqualsCaseInsensitive "$($psgetItemInfo.ReleaseNotes)" "$ReleaseNotes" "ReleaseNotes should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.ProjectUri $ProjectUri "ProjectUri should be same as the published one"

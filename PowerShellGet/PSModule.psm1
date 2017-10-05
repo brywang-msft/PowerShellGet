@@ -161,7 +161,7 @@ $script:PSArtifactType = 'Type'
 $script:PSArtifactTypeModule = 'Module'
 $script:PSArtifactTypeScript = 'Script'
 $script:All = 'All'
-
+$script:VersionPartsCandidates = @(2, 3, 4)
 $script:Name = 'Name'
 $script:Version = 'Version'
 $script:Guid = 'Guid'
@@ -8747,23 +8747,19 @@ function Publish-PSArtifactUtility
 </package>
 "@
 
-    $NupkgPath = "$NugetPackageRoot\$Name.$($Version.ToString()).nupkg"
+    #$NupkgPath = "$NugetPackageRoot\$Name.$($Version.ToString()).nupkg"
     $NuspecPath = "$NugetPackageRoot\$Name.nuspec"
     $tempErrorFile = $null
     $tempOutputFile = $null
-
+    $NupkgPath = $null
     try
     {        
-        # Remove existing nuspec and nupkg files
-        Microsoft.PowerShell.Management\Remove-Item $NupkgPath  -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Confirm:$false -WhatIf:$false
+        # Remove existing nuspec file
         Microsoft.PowerShell.Management\Remove-Item $NuspecPath -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Confirm:$false -WhatIf:$false
-            
         Microsoft.PowerShell.Management\Set-Content -Value $nuspec -Path $NuspecPath -Force -Confirm:$false -WhatIf:$false
 
         # Create .nupkg file
-        Write-Host "& $script:NuGetExePath pack $NuspecPath -OutputDirectory $NugetPackageRoot"
         $output = & $script:NuGetExePath pack $NuspecPath -OutputDirectory $NugetPackageRoot
-        Write-Host "NuGet Output: $output"
         if($LASTEXITCODE)
         {
             if($PSArtifactType -eq $script:PSArtifactTypeModule)
@@ -8785,15 +8781,37 @@ function Publish-PSArtifactUtility
         $tempErrorFile = Microsoft.PowerShell.Management\Join-Path -Path $nugetPackageRoot -ChildPath "TempPublishError.txt"
         $tempOutputFile = Microsoft.PowerShell.Management\Join-Path -Path $nugetPackageRoot -ChildPath "TempPublishOutput.txt"
         
-        Microsoft.PowerShell.Management\Start-Process -FilePath "$script:NuGetExePath" `
-                                                      -ArgumentList @('push', "`"$NupkgPath`"", '-source', "`"$($Destination.TrimEnd('\'))`"", '-NonInteractive', '-ApiKey', "`"$NugetApiKey`"") `
-                                                      -RedirectStandardError $tempErrorFile `
-                                                      -RedirectStandardOutput $tempOutputFile `
-                                                      -NoNewWindow `
-                                                      -Wait
+        # Get the default path first
+        $NupkgPath = "$NugetPackageRoot\$Name.$(Get-VersionString -Version $Version).nupkg"
+        if (-not (Test-Path -Path $NupkgPath))
+        {
+            # Otherwise, test all version parts
+            foreach ($versionPartsNum in $script:VersionPartsCandidates)
+            {
+                $NupkgPath = "$NugetPackageRoot\$Name.$(Get-VersionString -Version $Version -VersionParts $versionPartsNum).nupkg"
+                if (Test-Path -Path $NupkgPath)
+                {
+                    # TODO: Warning - auto-normalize happened, will be listed as 1.0.0 in non-PSGallery
+                    break
+                }
+            }
+        }
+        $errorMsg = ''
+        if (-not $NupkgPath -or -not (Test-Path -Path $NupkgPath))
+        {
+            # TODO: Error resource
+            $errorMsg = "Couldn't find NuGet package."
+        } else {
+            # And make it
+            Microsoft.PowerShell.Management\Start-Process -FilePath "$script:NuGetExePath" `
+                                                        -ArgumentList @('push', "`"$NupkgPath`"", '-source', "`"$($Destination.TrimEnd('\'))`"", '-NonInteractive', '-ApiKey', "`"$NugetApiKey`"") `
+                                                        -RedirectStandardError $tempErrorFile `
+                                                        -RedirectStandardOutput $tempOutputFile `
+                                                        -NoNewWindow `
+                                                        -Wait
 
-        $errorMsg = Microsoft.PowerShell.Management\Get-Content -Path $tempErrorFile -Raw
-
+            $errorMsg = Microsoft.PowerShell.Management\Get-Content -Path $tempErrorFile -Raw
+        }
         if($errorMsg)
         {
             if(($NugetApiKey -eq 'VSTS') -and 
@@ -8851,6 +8869,60 @@ function Publish-PSArtifactUtility
             Microsoft.PowerShell.Management\Remove-Item $tempOutputFile -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue -Confirm:$false -WhatIf:$false        
         }
     }
+}
+
+function Get-VersionString
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true)]
+        [Version]
+        $Version,
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet(2, 3, 4)]
+        [int]
+        $VersionParts = -1
+    )
+
+    $versionString = ''
+    if ($VersionParts -eq -1) 
+    {
+        $versionString = $Version.ToString()
+    } else
+    {
+        $major = $Version.Major
+        $minor = $Version.Minor
+        $build = $Version.Build
+        $revision = $Version.Revision
+        if ($major -eq -1)
+        {
+            $major = 0
+        }
+        if ($minor -eq -1)
+        {
+            $minor = 0
+        }
+        if ($build -eq -1)
+        {
+            $build = 0
+        }
+        if ($revision -eq -1)
+        {
+            $revision = 0
+        }
+
+        switch ($VersionParts)
+        {
+            2 { $versionString = [Version]::new($major, $minor).ToString() }
+            3 { $versionString = [Version]::new($major, $minor, $build).ToString() }
+            4 { $versionString = [Version]::new($major, $minor, $build, $revision).ToString() }
+            default { $versionString = $Version.ToString() }
+        }
+    }
+
+    return $versionString
 }
 
 function ValidateAndAdd-PSScriptInfoEntry
@@ -11012,7 +11084,6 @@ function Install-PackageUtility
         # create a temp folder and download the module
         $tempDestination = Microsoft.PowerShell.Management\Join-Path -Path $script:TempPath -ChildPath "$(Microsoft.PowerShell.Utility\Get-Random)"
         $null = Microsoft.PowerShell.Management\New-Item -Path $tempDestination -ItemType Directory -Force -Confirm:$false -WhatIf:$false
-
         try
         {
             $provider = $request.SelectProvider($providerName)
@@ -11340,6 +11411,14 @@ function Install-PackageUtility
                             Write-Verbose $message
                             continue
                         }
+                    }
+
+                    # Use the module version extracted from the manifest
+                    if($CurrentModuleInfo -and (Test-ModuleSxSVersionSupport))
+                    {
+                        $destinationModulePath = Microsoft.PowerShell.Management\Join-Path -Path $moduleDestination -ChildPath $pkg.Name | Microsoft.PowerShell.Management\Join-Path -ChildPath $CurrentModuleInfo.Version
+                        $installLocation = $destinationModulePath
+                        $psgItemInfo.Version = $CurrentModuleInfo.Version
                     }
 
                     Copy-Module -SourcePath $sourceModulePath -DestinationPath $destinationModulePath -PSGetItemInfo $psgItemInfo

@@ -103,15 +103,16 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It "PublishModuleWithName" {
         $version = "1.0"
+        $semVerVersion = "1.0.0"
         New-ModuleManifest -Path "$script:PublishModuleBase\$script:PublishModuleName.psd1" -ModuleVersion $version -Description "$script:PublishModuleName module"  -NestedModules "$script:PublishModuleName.psm1"
 
         #Copy module to $script:ProgramFilesModulesPath
         Copy-Item $script:PublishModuleBase $script:ProgramFilesModulesPath -Recurse -Force
 
         Publish-Module -Name $script:PublishModuleName -ReleaseNotes "$script:PublishModuleName release notes" -Tags PSGet -LicenseUri "https://$script:PublishModuleName.com/license" -ProjectUri "https://$script:PublishModuleName.com" -WarningAction SilentlyContinue
-
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        # This version can be 1.0 or 1.0.0, depending on your version of NuGet.exe
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
     }
 
     # Purpose: Publish a module with -Name and Module is created with SxS multi version support
@@ -122,6 +123,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It PublishModuleWithNameForSxSVersion {
         $version = "2.0"
+        $semVerVersion = "2.0.0"
         RemoveItem "$script:PublishModuleBase\*"
 
         $moduleBaseWithVersion = "$script:PublishModuleBase\$version"
@@ -136,7 +138,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         Publish-Module -Name $script:PublishModuleName -NuGetApiKey $script:ApiKey -ReleaseNotes "$script:PublishModuleName release notes" -Tags PSGet -LicenseUri "https://$script:PublishModuleName.com/license" -ProjectUri "https://$script:PublishModuleName.com" -WarningAction SilentlyContinue
 
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
     } `
     -Skip:$(-not (Test-ModuleSxSVersionSupport))
 
@@ -148,6 +150,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It PublishModuleWithNameRequiredVersionForSxSVersion {
         $version = "2.0"
+        $semVerVersion = "2.0.0"
         $moduleBaseWithVersion = "$script:PublishModuleBase\$version"
         $null = New-Item -Path $moduleBaseWithVersion -ItemType Directory -Force
         Set-Content "$moduleBaseWithVersion\$script:PublishModuleName.psm1" -Value "function Get-$script:PublishModuleName { Get-Date }"
@@ -167,7 +170,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
                        -WarningAction SilentlyContinue
 
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
     } `
     -Skip:$(-not (Test-ModuleSxSVersionSupport))
 
@@ -277,7 +280,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It PublishModuleWithPathForSxSVersion {
         $version = "2.0"
-
+        $semVerVersion = "2.0.0"
         $moduleBaseWithVersion = "$script:PublishModuleBase\$version"
         $null = New-Item -Path $moduleBaseWithVersion -ItemType Directory -Force
         Set-Content "$moduleBaseWithVersion\$script:PublishModuleName.psm1" -Value "function Get-$script:PublishModuleName { Get-Date }"
@@ -293,7 +296,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
                        -WarningAction SilentlyContinue
 
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
     } `
     -Skip:$(-not (Test-ModuleSxSVersionSupport))
 
@@ -443,6 +446,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It "PublishModuleMultipleVersions" {
         $version = "1.0"
+        $semVerVersion = "1.0.0"
         New-ModuleManifest -Path "$script:PublishModuleBase\$script:PublishModuleName.psd1" -ModuleVersion $version -Description "$script:PublishModuleName module"  -NestedModules "$script:PublishModuleName.psm1"
 
         #Copy module to $script:ProgramFilesModulesPath
@@ -451,10 +455,11 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         Publish-Module -Name $script:PublishModuleName -NuGetApiKey $script:ApiKey -ReleaseNotes "$script:PublishModuleName release notes" -Tags PSGet -LicenseUri "https://$script:PublishModuleName.com/license" -ProjectUri "https://$script:PublishModuleName.com" -WarningAction SilentlyContinue
 
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
 
 
         $version = "2.0"
+        $semVerVersion = "2.0.0"
         New-ModuleManifest -Path "$script:PublishModuleBase\$script:PublishModuleName.psd1" -ModuleVersion $version -Description "$script:PublishModuleName module"  -NestedModules "$script:PublishModuleName.psm1"
 
         #Copy module to $script:ProgramFilesModulesPath
@@ -463,7 +468,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         Publish-Module -Name $script:PublishModuleName -NuGetApiKey $script:ApiKey -ReleaseNotes "$script:PublishModuleName release notes" -Tags PSGet -LicenseUri "https://$script:PublishModuleName.com/license" -ProjectUri "https://$script:PublishModuleName.com" -WarningAction SilentlyContinue
 
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
-        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
+        Assert (($psgetItemInfo.Name -eq $script:PublishModuleName) -and (($psgetItemInfo.Version.ToString() -eq $version) -or ($psgetItemInfo.Version.ToString() -eq $semVerVersion))) "Publish-Module should publish a module with valid module name, $($psgetItemInfo.Name)"
     }
 
     # Purpose: Publish a module with non-existing nested module
@@ -632,6 +637,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         $null = New-Item -Path $ModuleBase -ItemType Directory -Force
 
         $version = "1.0"
+        $semVerVersion = "1.0.0"
         $Description = "$ModuleName module <TestElement> $&*!()[]{}@#"
         $ReleaseNotes = @("$ModuleName release notes", " <TestElement> $&*!()[]{}@#")
         $Tags = "PSGet","Special$&*!()[]{}@#<TestElement>"
@@ -651,7 +657,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         $psgetItemInfo = Find-Module $ModuleName -RequiredVersion $version
 
         AssertEqualsCaseInsensitive $psgetItemInfo.Name $ModuleName "ModuleName should be same as the published one"
-        AssertEqualsCaseInsensitive $psgetItemInfo.version $version "version should be same as the published one"
+        Assert (($psgetItemInfo.version -eq $version) -or ($psgetItemInfo.version -eq $semVerVersion)) "version should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.Description $Description "Description should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.ReleaseNotes "$($ReleaseNotes -join "`n")" "ReleaseNotes should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.ProjectUri $ProjectUri "ProjectUri should be same as the published one"
@@ -671,6 +677,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It PublishModulePSDataInManifestFile {
         $version = "1.0"
+        $semVerVersion = "1.0.0"
         $Description = "$script:PublishModuleName module"
         $ReleaseNotes = "$script:PublishModuleName release notes"
         $Tags = "PSGet","DSC"
@@ -701,7 +708,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
 
         AssertEqualsCaseInsensitive $psgetItemInfo.Name $script:PublishModuleName "ModuleName should be same as the published one"
-        AssertEqualsCaseInsensitive $psgetItemInfo.version $version "version should be same as the published one"
+        Assert (($psgetItemInfo.version -eq $version) -or ($psgetItemInfo.version -eq $semVerVersion)) "version should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.Description $Description "Description should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.ReleaseNotes $ReleaseNotes "ReleaseNotes should be same as the published one"
         AssertEqualsCaseInsensitive $psgetItemInfo.ProjectUri $ProjectUri "ProjectUri should be same as the published one"
@@ -722,6 +729,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
     #
     It PublishModuleWithUriObjectsAndPSDataInManifestFile {
         $version = "1.0"
+        $semVerVersion = "1.0.0"
         $Description = "$script:PublishModuleName module"
         $ReleaseNotes = "$script:PublishModuleName release notes"
         $Tags = "PSGet","DSC"
@@ -751,7 +759,7 @@ Describe PowerShell.PSGet.PublishModuleTests -Tags 'BVT','InnerLoop' {
         $psgetItemInfo = Find-Module $script:PublishModuleName -RequiredVersion $version
 
         AssertEquals $psgetItemInfo.Name $script:PublishModuleName "ModuleName should be same as the published one"
-        AssertEquals $psgetItemInfo.version $version "version should be same as the published one"
+        Assert (($psgetItemInfo.version -eq $version) -or ($psgetItemInfo.version -eq $semVerVersion)) "version should be same as the published one"
         AssertEquals $psgetItemInfo.Description $Description "Description should be same as the published one"
         AssertEquals $psgetItemInfo.ReleaseNotes $ReleaseNotes "ReleaseNotes should be same as the published one"
         AssertEquals $psgetItemInfo.ProjectUri $ProjectUri "ProjectUri should be same as the published one"
